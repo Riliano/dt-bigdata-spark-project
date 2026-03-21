@@ -3,6 +3,7 @@ import org.apache.spark._
 import org.apache.spark.SparkContext._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions.col
 
 /* Log4j */
 import org.apache.log4j.{Level, Logger}
@@ -35,7 +36,8 @@ object cardDWH {
 
     if (!input.exists()) {
       logger.error("Input CSV cannot be found!")
-      throw new FileNotFoundException("Could not find input file at: " + inputFilePath)
+      throw new FileNotFoundException(
+        "Could not find input file at: " + inputFilePath)
     }
 
     /**
@@ -49,7 +51,7 @@ pid|pname|age|gender|cardno|card_brand|card_type|tdate|amount|ttc|trans_type|mcc
      * Schema of our input file
      */
     val inputFileSchema = StructType(Array(
-      StructField("pid", IntegerType, false),
+      StructField("pid", IntegerType, true),
       StructField("pname", StringType, true),
       StructField("age", IntegerType, true),
       StructField("gender", StringType, true),
@@ -75,8 +77,44 @@ pid|pname|age|gender|cardno|card_brand|card_type|tdate|amount|ttc|trans_type|mcc
 
     logger.info("Input file imported")
     
+    /* Just for debug purposes */
     transactionsDf.printSchema()
     transactionsDf.show(10, false)
+
+    /* Just for a shortcut (Main Data Frame) */
+    val mdf = transactionsDf
+
+    /**
+     * First Dimension - customer general infocmation
+     * The first dimension would be for the specific customers. It also follows
+     * naturally, as the master key is already defined in the Dataset 
+     */
+
+    val customerCols = Seq("pid", "pname", "age", "gender")
+    val dimCustomer = mdf.select(customerCols.map(col): _*).distinct()
+
+    dimCustomer.printSchema()
+    dimCustomer.show(10, false)
+    println("Num customers: " + dimCustomer.count())
+
+    /**
+     * Second Dimension - Transaction types
+     * Comes naturally as well for already having an ID in the dataset
+     */
+
+    val transTypeCols = Seq("ttc", "trans_type")
+    val dimTransType = mdf.select(transTypeCols.map(col): _*).distinct()
+
+    dimTransType.printSchema()
+    dimTransType.show(10, false)
+    println("Num TransTypes: " + dimTransType.count())
+
+    /* Drop everything to create the fact table */
+    /* We use .tail to skip the first element, which should always be the key */
+    val colsToDrop = customerCols.tail ++ transTypeCols.tail
+    val factDf = transactionsDf.drop(colsToDrop: _*)
+    factDf.printSchema()
+    factDf.show(10, false)
 
   }
 }
