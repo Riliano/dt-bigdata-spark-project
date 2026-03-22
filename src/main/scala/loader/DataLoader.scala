@@ -4,6 +4,7 @@ package loader
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions.monotonically_increasing_id
 
 /* Log4j */
 import org.apache.log4j.{Level, Logger}
@@ -57,6 +58,8 @@ object DataLoader {
       .option("delimiter", "|")
       .option("timestampFormat", "yyyy-MM-dd HH:mm:ss")
       .load(input.getCanonicalPath())
+      .withColumn("tid", monotonically_increasing_id() + 1) //Add transaction id
+      .select("tid", "*") //rearrange
 
     logger.info("Input file imported")
     return transactionsDf

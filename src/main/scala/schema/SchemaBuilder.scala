@@ -54,7 +54,7 @@ object SchemaBuilder {
     /* Create the window with a partition, as to avoid perf issues */
     val dimCards = df.select(cardCols.map(col): _*).distinct
  //     .repartition(1)
-      .withColumn("cid", monotonically_increasing_id() + 1)
+      .withColumn("cid", monotonically_increasing_id().cast("int") + 1)
       .select(("cid" +: cardCols).map(col): _*) /* For reordering */
 
     logger.info("Cards Dimension extracted")
@@ -71,14 +71,46 @@ object SchemaBuilder {
       .join(dimCards, cardCols, "left")
       .drop(cardCols: _*)
 
+    /**
+     * Date Dimension
+     * Extract only the date portion of the timestamp for eaier query later only
+     * However keep the transacton time into the fact table, for better balance
+     * between the two tables
+     */
+
+    val dimDate = df
+      .select("tdate")
+      .withColumn("date", to_date(col("tdate")))
+      .select("date")
+      .distinct()
+      .withColumn("date_key",  date_format(col("date"), "yyyyMMdd").cast("int"))
+      .withColumn("year", year(col("date")))
+      .withColumn("quarter", quarter(col("date")))
+      .withColumn("month", month(col("date")))
+      .withColumn("month_name", date_format(col("date"), "MMMM"))
+      .withColumn("day", dayofmonth(col("date")))
+      .select("date_key", "date", "year", "quarter", "month", "month_name", 
+        "day") /* rearrange */
+
+    logger.info("Date Dimension extracted")
+    logger.info("Number of dates: " + dimDate.count())
+    /* Instead of a join, we'll collapse tdate into our date_key */
+    val factWithDate = factWithCards
+      .withColumn("date_key", date_format(col("tdate"), "yyyyMMdd").cast("int"))
+//      .withColumn("transaction_time", date_format(col("tdate"), "HH:mm:ss"))
+//      .drop("tdate")
+
+
     return Map(
       "DimCustomers" -> dimCustomers,
       "DimTransTypes" -> dimTransTypes,
       "DimMerchants" -> dimMerchants,
       "DimCards" -> dimCards,
+      "DimDate" -> dimDate,
 
       "Fact" ->  /* Reorder */
-        factWithCards.select("pid", "cid", "ttc", "mcc", "tdate", "amount")
+        factWithDate.select("tid", "pid", "cid", "ttc", "mcc", "date_key",
+          "tdate", "amount")
     )
   }
 }
