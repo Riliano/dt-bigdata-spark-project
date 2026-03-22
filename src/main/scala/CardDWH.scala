@@ -42,6 +42,7 @@ object cardDWH {
     val schema = SchemaBuilder.buildTransactionStartSchema(transactionsDf)
 
     schema.foreach { case (name, df) => 
+      DataLoader.exportToCsv(df, name)
       println("Here is: " + name)
       df.printSchema()
       df.show(10, false)

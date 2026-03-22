@@ -11,6 +11,7 @@ import org.apache.log4j.{Level, Logger}
 
 import java.io.File
 import java.io.FileNotFoundException
+import java.nio.file.{Files, Paths}
 
 object DataLoader {
 
@@ -63,5 +64,26 @@ object DataLoader {
 
     logger.info("Input file imported")
     return transactionsDf
+  }
+
+  def exportToCsv(
+    df: DataFrame, 
+    reportName: String, 
+    outputFolder: String = "output")
+  : String = {
+
+      val path = s"$outputFolder/$reportName.csv"
+      Files.createDirectories(Paths.get(path).getParent)
+
+      df.coalesce(1)
+        .write
+        .option("header", "true")
+        .option("delimiter", "|")
+        .mode("overwrite")
+        .csv(path)
+
+      logger.info(s"Report $reportName exported to $path")
+
+      return path
   }
 }
