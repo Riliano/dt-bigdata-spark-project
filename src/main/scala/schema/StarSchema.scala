@@ -1,6 +1,5 @@
 package schema
 
-/* Just an idea for now */
 import org.apache.spark.sql.DataFrame
 
 sealed trait DimensionKey

@@ -109,15 +109,6 @@ object SchemaBuilder {
       DimCards = dimCards,
       DimDate = dimDate,
       Fact = factWithDate.select(cols(FactKey).map(col): _*) /* Reorder */
-      /*
-    return Map(
-      "DimCustomers" -> dimCustomers,
-      "DimTransTypes" -> dimTransTypes,
-      "DimMerchants" -> dimMerchants,
-      "DimCards" -> dimCards,
-      "DimDate" -> dimDate,
-      "Fact" -> 
-      */
     )
   }
 }
