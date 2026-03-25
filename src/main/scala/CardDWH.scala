@@ -71,7 +71,15 @@ object cardDWH {
       runReport("Quarterly2019", 
         TransactionReports.quarterlyByTransType2019, 
         schema),
-      runReport("CubeTransactions", TransactionReports.cubeTransactions, schema)
+      runReport("CubeTransactions",
+        TransactionReports.cubeTransactions,
+        schema),
+      runReport("MonthlyTrends",
+        TransactionReports.seasonalTrends,
+        schema),
+      runReport("CustomerValueDecile",
+        TransactionReports.customerValueDecile,
+        schema)
     )
 
     reports.foreach { case (name, df) =>

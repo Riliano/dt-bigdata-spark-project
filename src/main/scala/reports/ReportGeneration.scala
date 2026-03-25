@@ -2,6 +2,8 @@ package reports
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.expressions.Window
+
 import schema.TransactionDWH
 
 object TransactionReports {
@@ -77,5 +79,51 @@ object TransactionReports {
       .cube(col("d.year"), col("c.card_brand"), col("cu.gender"))
       .agg(count("*").alias("NumTransactions"))
       .orderBy(col("d.year"), col("c.card_brand"), col("cu.gender"))
+  }
+
+  /** Custom reports **/
+
+  /**
+   * Report 6: Monthly trend
+   * Output: ("Year", "Month", "MonthName", "NumTransactions", "TotalTransactionValue", AverageTransactionValue")
+   */
+  def seasonalTrends(dwh: TransactionDWH): DataFrame = {
+    dwh.Fact
+      .join(dwh.DimDate, dwh.Fact("date_key") === dwh.DimDate("date_key"))
+      .groupBy("year", "month", "month_name")
+      .agg(
+        count("*").as("NumTransactions"),
+        sum(dwh.Fact("amount")).as("TotalTransactionValue"),
+        avg(dwh.Fact("amount")).as("AvgTransactionValue")
+      )
+      .orderBy(col("Year").asc, col("Month").asc)
+  }
+
+  /**
+   * Report 7: Customer value concentration by spend decile
+   * Output: ("Decile", "Numbef of Customers", "TotalTransactions", "TotalTransactionValue", "ShareOfTotalValue")
+   */
+
+  def customerValueDecile(dwh: TransactionDWH): DataFrame = {
+    val customerTotals = dwh.Fact
+      .groupBy(col("pid"))
+      .agg(
+        count("*").as("NumTransactions"),
+        sum(col("amount")).as("TotalTransactionValue")
+      )
+
+      val winSpec = Window.orderBy(col("TotalTransactionValue").desc)
+      val ranked = customerTotals.withColumn("Decile", ntile(10).over(winSpec))
+
+      val result = ranked
+        .groupBy(col("Decile"))
+        .agg(
+          count("*").as("NumCustomers"),
+          sum(col("NumTransactions")).as("TotalTransactions"),
+          sum(col("TotalTransactionValue")).as("TotalTransactionValue")
+        )
+        .orderBy(col("Decile").asc)
+
+      return result
   }
 }
